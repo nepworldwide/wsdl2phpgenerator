@@ -273,9 +273,9 @@ class Validator
      *
      * If a name is not unique then append a suffix and numbering.
      *
-     * @param $name the name to test
+     * @param string $name the name to test
      * @param callable $function A callback which should return true if the element is unique. Otherwise false.
-     * @param string   $suffix   a suffix to append between the name and numbering
+     * @param string|null   $suffix   a suffix to append between the name and numbering
      *
      * @return string a unique name
      */
@@ -307,10 +307,11 @@ class Validator
     private static function validateNamingConvention($name)
     {
         $name = iconv('UTF-8', 'ASCII//TRANSLIT', $name);
+        $name = ucfirst($name);
 
         // Prepend the string a to names that begin with anything but a-z This is to make a valid name
         if (preg_match('/^[A-Za-z_]/', $name) == false) {
-            $name = self::NAME_PREFIX.ucfirst($name);
+            $name = self::NAME_PREFIX . $name;
         }
 
         return preg_replace('/[^a-zA-Z0-9_x7f-xff]*/', '', preg_replace('/^[^a-zA-Z_x7f-xff]*/', '', $name));
