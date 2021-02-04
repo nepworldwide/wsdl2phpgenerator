@@ -157,19 +157,26 @@ class Service implements ClassGenerator
         $comment->addParam(PhpDocElementFactory::getParam('string', 'wsdl', 'The wsdl file to use'));
         $comment->addParam(PhpDocElementFactory::getParam('array', 'options', 'A array of config values'));
 
-        $source = '
-  foreach (self::$classmap as $key => $value) {
-    if (!isset($options[\'classmap\'][$key])) {
-      $options[\'classmap\'][$key] = $value;
-    }
-  }'.PHP_EOL;
-        $source .= '  $options = array_merge('.var_export($this->config->get('soapClientOptions'), true).', $options);'.PHP_EOL;
-        $source .= '  if (!$wsdl) {'.PHP_EOL;
-        $source .= '    $wsdl = \''.$this->config->get('inputFile').'\';'.PHP_EOL;
-        $source .= '  }'.PHP_EOL;
-        $source .= '  parent::__construct($wsdl, $options);'.PHP_EOL;
+        $soapOptions = ['['];
+        foreach ($this->config->get('soapClientOptions') as $key => $value) {
+            $soapOptions[] = "            '$key' => '$value',";
+        }
+        $soapOptions[] = '        ]';
 
-        $function = new PhpFunction('public', '__construct', 'array $options = array(), $wsdl = null', $source, $comment);
+
+        $source = '
+    foreach (self::$classmap as $key => $value) {
+        if (!isset($options[\'classmap\'][$key])) {
+            $options[\'classmap\'][$key] = $value;
+        }
+    }'.PHP_EOL.PHP_EOL;
+        $source .= '    $options = array_merge('.PHP_EOL;
+        $source .= '        ' . implode(PHP_EOL, $soapOptions).','.PHP_EOL;
+        $source .= '        $options'.PHP_EOL;
+        $source .= '    );'.PHP_EOL.PHP_EOL;
+        $source .= '    parent::__construct($wsdl, $options);'.PHP_EOL;
+
+        $function = new PhpFunction('public', '__construct', '$wsdl, array $options = array()', $source, $comment);
 
         // Add the constructor
         $this->class->addFunction($function);
@@ -179,13 +186,15 @@ class Service implements ClassGenerator
         $comment = new PhpDocComment();
         $comment->setVar(PhpDocElementFactory::getVar('array', $name, 'The defined classes'));
 
-        $init = [];
+        $init = ['['];
         foreach ($this->types as $type) {
             if ($type instanceof ComplexType) {
-                $init[$type->getIdentifier()] = $this->config->get('namespaceName').'\\'.$type->getPhpIdentifier();
+                $init[] = "    '".$type->getIdentifier()."' => '".$this->config->get('namespaceName').'\\'.$type->getPhpIdentifier()."',";
             }
         }
-        $var = new PhpVariable('private static', $name, var_export($init, true), $comment);
+        $init[] = ']';
+
+        $var = new PhpVariable('private static', $name, implode(PHP_EOL, $init), $comment);
 
         // Add the classmap variable
         $this->class->addVariable($var);
@@ -202,7 +211,7 @@ class Service implements ClassGenerator
                 $comment->addParam(PhpDocElementFactory::getParam($arr['type'], $arr['name'], $arr['desc']));
             }
 
-            $source = '  return $this->__soapCall(\''.$operation->getName().'\', array('.$operation->getParamStringNoTypeHints().'));'.PHP_EOL;
+            $source = '    return $this->__soapCall(\''.$operation->getName().'\', array('.$operation->getParamStringNoTypeHints().'));'.PHP_EOL;
 
             $paramStr = $operation->getParamString($this->types);
 
